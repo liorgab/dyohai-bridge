@@ -1,0 +1,37 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+*.log
+base44_bulk_daemon.log
+
+# Local install artifacts (should NOT be committed)
+config.json
+profile/
+chromedriver.exe
+chrome-win64/
+
+# User-specific token files
+.github_token
+*.pat
+
+# Build artifacts
+dist/
+build/
+*.zip

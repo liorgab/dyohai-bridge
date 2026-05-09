@@ -1,0 +1,9 @@
+{
+  "name": "com.dyohai.bridge",
+  "description": "Base44 Bridge native helper - enables file attachments in WhatsApp Web",
+  "path": "BAT_PATH_PLACEHOLDER",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://EXTENSION_ID_PLACEHOLDER/"
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "D.Yohai Bridge - PIBA, HopOn & WhatsApp",
+  "version": "1.4.0",
+  "description": "מחבר את Base44 לאתרי רשות האוכלוסין (PIBA), HopOn ו-WhatsApp Web + תמיכה במשלוח מדיה + Bulk Sender",
+  "permissions": ["storage", "tabs", "scripting", "nativeMessaging"],
+  "host_permissions": [
+    "https://inforhub.piba.gov.il/*",
+    "https://b2b-dashboard.hopon.co/*",
+    "https://api-gateway.hopon.co/*",
+    "https://web.whatsapp.com/*",
+    "https://*.base44.app/*",
+    "https://app.base44.com/*",
+    "https://base44.app/*",
+    "https://*.googleapis.com/*",
+    "https://*.googleusercontent.com/*",
+    "https://storage.googleapis.com/*",
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://inforhub.piba.gov.il/*"],
+      "js": ["content-piba.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://b2b-dashboard.hopon.co/*"],
+      "js": ["content-hopon.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content-whatsapp.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.base44.app/*",
+        "https://app.base44.com/*",
+        "https://base44.app/*"
+      ],
+      "js": ["content-base44.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-bridge.js"],
+      "matches": [
+        "https://*.base44.app/*",
+        "https://app.base44.com/*",
+        "https://base44.app/*"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Base44 Bridge"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}
