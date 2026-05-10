@@ -1,4 +1,4 @@
-# =====================================================================
+﻿# =====================================================================
 # D.Yohai Bridge - Smart Installer
 # =====================================================================
 # Installs everything needed to run the Base44 Bridge ecosystem on Windows:
@@ -35,7 +35,7 @@ $OutputEncoding           = [System.Text.Encoding]::UTF8
 # ─── Constants ───────────────────────────────────────────────────────
 $REPO_ROOT     = $PSScriptRoot
 $INSTALL_BASE  = "$env:LOCALAPPDATA\DYohaiBridge"        # repo + scripts
-$DAEMON_BASE   = "$env:LOCALAPPDATA\DYohaiBulkSender"    # daemon + chromedriver + profile
+$DAEMON_BASE   = "$env:LOCALAPPDATA\Base44BulkSender"    # matches daemon DEFAULT_CHROMEDRIVER    # daemon + chromedriver + profile
 $CFT_BASE      = "$env:LOCALAPPDATA\DYohaiChromeTest"    # Chrome for Testing
 $NATIVE_BASE   = "$env:APPDATA\DYohaiNativeHelper"       # Native Messaging Helper
 $LOG_FILE      = "$env:TEMP\dyohai_install.log"
