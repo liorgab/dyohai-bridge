@@ -497,7 +497,7 @@ function Step-AutoStart($idx, $total, $daemon) {
     }
 
     # Always remove old task first (idempotent)
-    schtasks /Delete /TN $taskName /F 2>$null | Out-Null
+    try { schtasks /Delete /TN $taskName /F 2>$null | Out-Null } catch {}
 
     if (-not $enable) {
         Write-Info 'אוטו-סטארט בוטל - תצטרך להפעיל ידנית מהקיצור על שולחן העבודה'
