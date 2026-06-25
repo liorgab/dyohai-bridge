@@ -497,8 +497,9 @@ function Step-AutoStart($idx, $total, $daemon) {
         $enable = Confirm-YesNo '   Enable auto-start?' 'Y'
     }
 
-    # Always remove old task first (idempotent)
-    schtasks /Delete /TN $taskName /F 2>$null | Out-Null
+    # Idempotent: remove any existing startup shortcut
+    $oldShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'DYohai Daemon.lnk'
+    if (Test-Path $oldShortcut) { Remove-Item $oldShortcut -Force -ErrorAction SilentlyContinue }
 
     if (-not $enable) {
         Write-Info 'Auto-start disabled - launch manually from desktop shortcut'
