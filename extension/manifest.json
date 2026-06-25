@@ -1,8 +1,8 @@
 {
     "manifest_version":  3,
     "name":  "D.Yohai Bridge - PIBA, HopOn \u0026 WhatsApp",
-    "version":  "1.4.2",
-    "description":  "D.Yohai Bridge - ׳׳—׳‘׳¨ ׳׳× Base44 ׳׳׳×׳¨׳™ ׳¨׳©׳•׳× ׳”׳׳•׳›׳׳•׳¡׳™׳ (PIBA), HopOn ׳•-WhatsApp Web + ׳×׳׳™׳›׳” ׳‘׳׳©׳׳•׳— ׳׳“׳™׳” + Bulk Sender",
+    "version":  "1.4.3",
+    "description":  "D.Yohai Bridge - ׳³ֲ׳³ג€”׳³ג€˜׳³ֲ¨ ׳³ֲ׳³ֳ— Base44 ׳³ֲ׳³ֲ׳³ֳ—׳³ֲ¨׳³ג„¢ ׳³ֲ¨׳³ֲ©׳³ג€¢׳³ֳ— ׳³ג€׳³ֲ׳³ג€¢׳³ג€÷׳³ֲ׳³ג€¢׳³ֲ¡׳³ג„¢׳³ֲ (PIBA), HopOn ׳³ג€¢-WhatsApp Web + ׳³ֳ—׳³ֲ׳³ג„¢׳³ג€÷׳³ג€ ׳³ג€˜׳³ֲ׳³ֲ©׳³ֲ׳³ג€¢׳³ג€” ׳³ֲ׳³ג€׳³ג„¢׳³ג€ + Bulk Sender",
     "permissions":  [
                         "storage",
                         "tabs",

@@ -1,4 +1,4 @@
-# =====================================================================
+﻿# =====================================================================
 # D.Yohai Bridge - Smart Installer
 # =====================================================================
 # Installs everything needed to run the Base44 Bridge ecosystem on Windows:
@@ -491,7 +491,7 @@ function Step-AutoStart($idx, $total, $daemon) {
     else {
         Write-Host ''
         Write-Host '   Start daemon automatically at every Windows login?' -ForegroundColor White
-        Write-Host '   Pro: Daemon always ready - no need to remember to start it' -ForegroundColor Gray
+        Write-Host '   Pro: Daemon always ready - no need to start manually' -ForegroundColor Gray
         Write-Host '   Con: ~50MB RAM used in background' -ForegroundColor Gray
         Write-Host ''
         $enable = Confirm-YesNo '   Enable auto-start?' 'Y'
@@ -582,12 +582,12 @@ function Step-ManualInstructions($idx, $total) {
 
     Write-Host ''
     Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   |  Manual Step 1 - Load Chrome Extension                       |' -ForegroundColor Yellow
+    Write-Host '   │  Manual Step 1 - Load Chrome Extension                        │' -ForegroundColor Yellow
     Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   |  1. chrome://extensions/ tab opened for you                  |' -ForegroundColor White
-    Write-Host '   |  2. Enable "Developer mode" (top-right corner)              |' -ForegroundColor White
-    Write-Host '   |  3. Click "Load unpacked"                                    |' -ForegroundColor White
-    Write-Host '   |  4. Select the folder:                                       |' -ForegroundColor White
+    Write-Host '   │  1. chrome://extensions/ tab opened for you                    │' -ForegroundColor White
+    Write-Host '   │  2. Enable "Developer mode" (top-right corner)               │' -ForegroundColor White
+    Write-Host '   │  3. Click "Load unpacked"                                      │' -ForegroundColor White
+    Write-Host '   │  4. Select the folder:                                          │' -ForegroundColor White
     Write-Host "   │     $extPath" -ForegroundColor Cyan
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
@@ -597,21 +597,21 @@ function Step-ManualInstructions($idx, $total) {
 
     Write-Host ''
     Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   |  Manual Step 2 - Connect WhatsApp Web in Chrome Test          |' -ForegroundColor Yellow
+    Write-Host '   │  Manual Step 2 - Connect WhatsApp Web in Chrome Test              │' -ForegroundColor Yellow
     Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   |  1. Open Base44 in regular Chrome                            |' -ForegroundColor White
-    Write-Host '   |  2. Click the Extension icon at top                          |' -ForegroundColor White
-    Write-Host '   |  3. In "Bulk Sender" card - click "Open Chrome Test for QR"  |' -ForegroundColor White
-    Write-Host '   |  4. Scan QR with phone - session saved forever               |' -ForegroundColor White
+    Write-Host '   │  1. Open Base44 in regular Chrome                                │' -ForegroundColor White
+    Write-Host '   │  2. Click the Extension icon at top                          │' -ForegroundColor White
+    Write-Host '   │  3. In "Bulk Sender" card - click "Open Chrome Test for QR"     │' -ForegroundColor White
+    Write-Host '   │  4. Scan QR with phone - session saved forever                        │' -ForegroundColor White
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
     Write-Host ''
     Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   |  Manual Step 3 - Copy components to Base44                   |' -ForegroundColor Yellow
+    Write-Host '   │  Manual Step 3 - Copy components to Base44                     │' -ForegroundColor Yellow
     Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   |  Open the following folder and read its README:              |' -ForegroundColor White
+    Write-Host '   │  Open this folder and read its README:                  │' -ForegroundColor White
     Write-Host "   │  $compPath" -ForegroundColor Cyan
-    Write-Host '   |  It contains all .jsx files to copy manually to Base44.      |' -ForegroundColor White
+    Write-Host '   │  Contains all .jsx files to copy manually to Base44.            │' -ForegroundColor White
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
     if (-not $SkipExtensionPrompt) {
@@ -627,7 +627,7 @@ function Step-HealthCheck($idx, $total) {
         Write-Info 'Running doctor.ps1...'
         & $doctorPath -BriefMode
     } else {
-        Write-Warn 'doctor.ps1 not found - skipping'
+        Write-Warn 'doctor.ps1 not found - Skipping'
     }
 }
 
@@ -636,14 +636,14 @@ function Show-FinalBanner($daemon) {
     Write-Host ''
     Write-Host '  ╔════════════════════════════════════════════════════════════╗' -ForegroundColor Green
     Write-Host '  ║                                                            ║' -ForegroundColor Green
-    Write-Host '  ||          [OK] Installation complete!                          ||' -ForegroundColor Green
+    Write-Host '  ║          ✅ Installation complete!                          ║' -ForegroundColor Green
     Write-Host '  ║                                                            ║' -ForegroundColor Green
     Write-Host '  ╚════════════════════════════════════════════════════════════╝' -ForegroundColor Green
     Write-Host ''
     Write-Host '  Future commands:' -ForegroundColor White
-    Write-Host "    Update:       $INSTALL_BASE\update.ps1" -ForegroundColor Gray
-    Write-Host "    Diagnostics:  $INSTALL_BASE\doctor.ps1" -ForegroundColor Gray
-    Write-Host "    Uninstall:    $INSTALL_BASE\uninstall.ps1" -ForegroundColor Gray
+    Write-Host "    Update:           $INSTALL_BASE\update.ps1" -ForegroundColor Gray
+    Write-Host "    Doctor:           $INSTALL_BASE\doctor.ps1" -ForegroundColor Gray
+    Write-Host "    Uninstall:         $INSTALL_BASE\uninstall.ps1" -ForegroundColor Gray
     Write-Host ''
     Write-Host '  Full install log:' -ForegroundColor White
     Write-Host "    $LOG_FILE" -ForegroundColor Gray
