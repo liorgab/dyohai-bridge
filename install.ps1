@@ -1,4 +1,4 @@
-﻿# =====================================================================
+# =====================================================================
 # D.Yohai Bridge - Smart Installer
 # =====================================================================
 # Installs everything needed to run the Base44 Bridge ecosystem on Windows:
@@ -26,6 +26,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $ProgressPreference    = 'SilentlyContinue'  # speeds up Invoke-WebRequest
 
 # Force UTF-8 for proper Hebrew rendering
@@ -190,10 +191,10 @@ function Find-Python {
 }
 
 function Step-Python($idx, $total) {
-    Write-Step $idx $total 'בודק Python 3.8+...'
+    Write-Step $idx $total 'Checking Python 3.8+...'
 
     if ($SkipPython) {
-        Write-Warn 'דילוג על Python (פרמטר -SkipPython)'
+        Write-Warn 'Skipping Python (flag -SkipPython)'
         return Find-Python
     }
 
@@ -203,7 +204,7 @@ function Step-Python($idx, $total) {
         return $py
     }
 
-    Write-Warn 'Python לא נמצא במערכת. מנסה התקנה אוטומטית...'
+    Write-Warn 'Python not found. Attempting auto-install...'
 
     $installed = $false
     if (Install-PythonViaWinget) {
@@ -213,7 +214,7 @@ function Step-Python($idx, $total) {
             Write-Ok "Python $($py.Version) installed via winget"
             return $py
         }
-        Write-Warn 'winget סיים אבל Python לא נמצא ב-PATH - מנסה התקנה ישירה'
+        Write-Warn 'winget done but Python not in PATH - trying direct install'
     }
 
     if (Install-PythonDirect) {
@@ -225,18 +226,18 @@ function Step-Python($idx, $total) {
         }
     }
 
-    Write-Err 'התקנה אוטומטית נכשלה'
+    Write-Err 'Auto-install failed'
     Write-Host ''
-    Write-Host '   הורד והתקן ידנית מ:' -ForegroundColor Yellow
+    Write-Host '   Download and install manually from:' -ForegroundColor Yellow
     Write-Host '   https://www.python.org/downloads/' -ForegroundColor Cyan
-    Write-Host '   חשוב: סמן "Add Python to PATH" בהתקנה' -ForegroundColor Yellow
+    Write-Host '   IMPORTANT: Check "Add Python to PATH" during install' -ForegroundColor Yellow
     Start-Process 'https://www.python.org/downloads/'
     exit 1
 }
 
 # ─── Step: Python packages ───────────────────────────────────────────
 function Step-PythonPackages($idx, $total, $py) {
-    Write-Step $idx $total 'מתקין חבילות Python (selenium, flask, ...)...'
+    Write-Step $idx $total 'Installing Python packages (selenium, flask, ...)...'
 
     $pkgs = @('selenium', 'flask', 'flask-cors', 'requests', 'pyperclip')
     $args = @('-m', 'pip', 'install', '--user', '--upgrade', '--disable-pip-version-check') + $pkgs
@@ -247,11 +248,11 @@ function Step-PythonPackages($idx, $total, $py) {
 
     if ($proc.ExitCode -ne 0) {
         $errOut = Get-Content "$env:TEMP\pip_stderr.txt" -Raw -ErrorAction SilentlyContinue
-        Write-Err "pip install נכשל"
+        Write-Err "pip install failed"
         Write-Host $errOut -ForegroundColor DarkRed
         exit 1
     }
-    Write-Ok 'חבילות הותקנו: selenium, flask, flask-cors, requests, pyperclip'
+    Write-Ok 'Packages installed: selenium, flask, flask-cors, requests, pyperclip'
 }
 
 # ─── Step: Regular Chrome ────────────────────────────────────────────
@@ -290,8 +291,8 @@ function Install-ChromeViaWinget {
 }
 
 function Step-Chrome($idx, $total) {
-    Write-Step $idx $total 'בודק Google Chrome...'
-    if ($SkipChrome) { Write-Warn 'דילוג על Chrome'; return $null }
+    Write-Step $idx $total 'Checking Google Chrome...'
+    if ($SkipChrome) { Write-Warn 'Skipping Chrome'; return $null }
 
     $chrome = Find-Chrome
     if ($chrome) {
@@ -300,7 +301,7 @@ function Step-Chrome($idx, $total) {
         return $chrome
     }
 
-    Write-Warn 'Chrome לא מותקן. מנסה התקנה אוטומטית...'
+    Write-Warn 'Chrome not installed. Attempting auto-install...'
     if (Install-ChromeViaWinget) {
         Start-Sleep -Seconds 2
         $chrome = Find-Chrome
@@ -310,14 +311,14 @@ function Step-Chrome($idx, $total) {
         }
     }
 
-    Write-Warn 'התקנה אוטומטית של Chrome נכשלה'
-    Write-Host '   הורד והתקן ידנית: https://www.google.com/chrome/' -ForegroundColor Cyan
+    Write-Warn 'Chrome auto-install failed'
+    Write-Host '   Download and install manually: https://www.google.com/chrome/' -ForegroundColor Cyan
     Start-Process 'https://www.google.com/chrome/'
-    if (Confirm-YesNo 'התקנת Chrome ידנית? להמשיך?' 'Y') {
+    if (Confirm-YesNo 'Chrome installed manually? Continue?' 'Y') {
         $chrome = Find-Chrome
         if ($chrome) { return $chrome }
     }
-    Write-Warn 'ממשיך בלי Chrome - תצטרך להתקין לפני טעינת ה-Extension'
+    Write-Warn 'Continuing without Chrome - install before loading Extension'
     return $null
 }
 
@@ -333,18 +334,18 @@ function Get-LatestStableCfTVersion {
 }
 
 function Step-ChromeForTesting($idx, $total) {
-    Write-Step $idx $total 'מתקין Chrome for Testing + ChromeDriver...'
-    if ($SkipChromeForTesting) { Write-Warn 'דילוג'; return $null }
+    Write-Step $idx $total 'Installing Chrome for Testing + ChromeDriver...'
+    if ($SkipChromeForTesting) { Write-Warn 'Skipping'; return $null }
 
     $existing = "$CFT_BASE\chrome-win64\chrome.exe"
     if (Test-Path $existing) {
         $ver = Get-ChromeVersion $existing
-        Write-Ok "Chrome for Testing $ver כבר מותקן"
+        Write-Ok "Chrome for Testing $ver already installed"
         # Still need to ensure chromedriver matches; continue to driver step
     } else {
         $stable = Get-LatestStableCfTVersion
         if (-not $stable) {
-            Write-Err 'לא הצלחתי להתחבר ל-googlechromelabs - בדוק חיבור אינטרנט'
+            Write-Err 'Could not connect to googlechromelabs - check internet'
             exit 1
         }
         $cftVer = $stable.version
@@ -358,7 +359,7 @@ function Step-ChromeForTesting($idx, $total) {
         New-Item -Path $CFT_BASE -ItemType Directory -Force | Out-Null
         $zipPath = "$env:TEMP\chrome-for-testing.zip"
         Invoke-WebRequest -Uri $cftUrl -OutFile $zipPath -UseBasicParsing
-        Write-Info 'מחלץ...'
+        Write-Info 'Extracting...'
         Expand-Archive -Path $zipPath -DestinationPath $CFT_BASE -Force
         Remove-Item $zipPath -ErrorAction SilentlyContinue
         Write-Ok "Chrome for Testing $cftVer extracted to $CFT_BASE\chrome-win64\"
@@ -402,7 +403,7 @@ function Step-ChromeForTesting($idx, $total) {
         Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
         Write-Ok "ChromeDriver installed"
     } else {
-        Write-Ok 'ChromeDriver תואם כבר קיים'
+        Write-Ok 'Compatible ChromeDriver already exists'
     }
 
     return @{ ChromePath = $cftExe; ChromedriverPath = $chromedriverPath }
@@ -410,7 +411,7 @@ function Step-ChromeForTesting($idx, $total) {
 
 # ─── Step: Daemon ────────────────────────────────────────────────────
 function Step-Daemon($idx, $total, $cft) {
-    Write-Step $idx $total 'מתקין את Bulk Sender Daemon...'
+    Write-Step $idx $total 'Installing Bulk Sender Daemon...'
 
     New-Item -Path $DAEMON_BASE -ItemType Directory -Force | Out-Null
     $profileDir = "$DAEMON_BASE\profile"
@@ -434,7 +435,7 @@ function Step-Daemon($idx, $total, $cft) {
         profile_dir        = $profileDir
     } | ConvertTo-Json
     $configPath = "$DAEMON_BASE\config.json"
-    [System.IO.File]::WriteAllText($configPath, $config, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($configPath, $config, $utf8NoBom)
     Write-Ok "config.json saved"
 
     # start_daemon.bat
@@ -451,7 +452,7 @@ echo.
 pause
 "@
     $batPath = "$DAEMON_BASE\start_daemon.bat"
-    [System.IO.File]::WriteAllText($batPath, $batContent, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($batPath, $batContent, $utf8NoBom)
     Write-Ok "start_daemon.bat created"
 
     # Hidden start variant (for Task Scheduler auto-start - no cmd window)
@@ -460,7 +461,7 @@ Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run "$batPath", 0, False
 "@
     $vbsPath = "$DAEMON_BASE\start_daemon_hidden.vbs"
-    [System.IO.File]::WriteAllText($vbsPath, $hiddenVbs, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($vbsPath, $hiddenVbs, $utf8NoBom)
 
     # Desktop shortcut
     $desktop = [System.Environment]::GetFolderPath('Desktop')
@@ -479,7 +480,7 @@ WshShell.Run "$batPath", 0, False
 
 # ─── Step: Auto-start (Task Scheduler) ──────────────────────────────
 function Step-AutoStart($idx, $total, $daemon) {
-    Write-Step $idx $total 'הפעלה אוטומטית של הדימון בכניסה ל-Windows...'
+    Write-Step $idx $total 'Setting up daemon auto-start at Windows login...'
 
     $taskName = 'DYohaiBulkSenderDaemon'
 
@@ -489,18 +490,18 @@ function Step-AutoStart($idx, $total, $daemon) {
     elseif ($NoAutoStart)  { $enable = $false }
     else {
         Write-Host ''
-        Write-Host '   האם להפעיל את הדימון אוטומטית בכל פעם שתיכנס למחשב?' -ForegroundColor White
-        Write-Host '   יתרון: הדימון תמיד מוכן - לא צריך לזכור להפעיל ידנית' -ForegroundColor Gray
-        Write-Host '   חיסרון: ~50MB RAM נצרכים תמיד ברקע' -ForegroundColor Gray
+        Write-Host '   Start daemon automatically at every Windows login?' -ForegroundColor White
+        Write-Host '   Pro: Daemon always ready - no need to remember to start it' -ForegroundColor Gray
+        Write-Host '   Con: ~50MB RAM used in background' -ForegroundColor Gray
         Write-Host ''
-        $enable = Confirm-YesNo '   הפעלה אוטומטית?' 'Y'
+        $enable = Confirm-YesNo '   Enable auto-start?' 'Y'
     }
 
     # Always remove old task first (idempotent)
     schtasks /Delete /TN $taskName /F 2>$null | Out-Null
 
     if (-not $enable) {
-        Write-Info 'אוטו-סטארט בוטל - תצטרך להפעיל ידנית מהקיצור על שולחן העבודה'
+        Write-Info 'Auto-start disabled - launch manually from desktop shortcut'
         return $false
     }
 
@@ -512,21 +513,21 @@ function Step-AutoStart($idx, $total, $daemon) {
 
     if ($proc.ExitCode -ne 0) {
         $err = Get-Content "$env:TEMP\schtasks_err.txt" -Raw -ErrorAction SilentlyContinue
-        Write-Warn "schtasks הכשלה: $err"
-        Write-Info 'ניתן להמשיך - אבל תצטרך להפעיל את הדימון ידנית'
+        Write-Warn "schtasks failed: $err"
+        Write-Info 'You can continue - but will need to start daemon manually'
         return $false
     }
-    Write-Ok "Task Scheduler entry '$taskName' נוצר - יעלה בכל login"
+    Write-Ok "Task Scheduler entry '$taskName' created - runs at every login"
     return $true
 }
 
 # ─── Step: Native Messaging Helper ──────────────────────────────────
 function Step-NativeHelper($idx, $total) {
-    Write-Step $idx $total 'מתקין Native Messaging Helper (PDF dialog)...'
+    Write-Step $idx $total 'Installing Native Messaging Helper (PDF dialog)...'
 
     $helperSrc = "$REPO_ROOT\extension\native-helper"
     if (-not (Test-Path $helperSrc)) {
-        Write-Warn 'native-helper folder לא קיים - דילוג'
+        Write-Warn 'native-helper folder not found - skipping'
         return
     }
 
@@ -539,7 +540,7 @@ function Step-NativeHelper($idx, $total) {
     if (Test-Path $helperInstall) {
         try {
             & $helperInstall
-            Write-Ok 'Native Manifest רשום ב-Chrome'
+            Write-Ok 'Native Manifest registered in Chrome'
         } catch {
             Write-Warn "native helper install failed: $_"
         }
@@ -548,7 +549,7 @@ function Step-NativeHelper($idx, $total) {
 
 # ─── Step: Save install metadata ────────────────────────────────────
 function Step-SaveMetadata($idx, $total) {
-    Write-Step $idx $total 'שומר metadata של ההתקנה...'
+    Write-Step $idx $total 'Saving install metadata...'
 
     New-Item -Path $INSTALL_BASE -ItemType Directory -Force | Out-Null
     $meta = @{
@@ -560,7 +561,7 @@ function Step-SaveMetadata($idx, $total) {
         cft_base      = $CFT_BASE
         native_base   = $NATIVE_BASE
     } | ConvertTo-Json
-    [System.IO.File]::WriteAllText("$INSTALL_BASE\install.json", $meta, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText("$INSTALL_BASE\install.json", $meta, $utf8NoBom)
 
     # Copy update.ps1, doctor.ps1, uninstall.ps1 for later use without needing the repo
     foreach ($script in @('update.ps1', 'doctor.ps1', 'uninstall.ps1')) {
@@ -574,19 +575,19 @@ function Step-SaveMetadata($idx, $total) {
 
 # ─── Step: Final manual instructions ────────────────────────────────
 function Step-ManualInstructions($idx, $total) {
-    Write-Step $idx $total 'הוראות סיום (פעולות ידניות נדרשות)'
+    Write-Step $idx $total 'Final instructions (manual actions required)'
 
     $extPath  = "$REPO_ROOT\extension"
     $compPath = "$REPO_ROOT\base44-components"
 
     Write-Host ''
     Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   │  שלב ידני 1 - טעינת Chrome Extension                        │' -ForegroundColor Yellow
+    Write-Host '   |  Manual Step 1 - Load Chrome Extension                       |' -ForegroundColor Yellow
     Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   │  1. נפתחה לך לשונית chrome://extensions/                    │' -ForegroundColor White
-    Write-Host '   │  2. הפעל "Developer mode" בפינה הימנית-עליונה               │' -ForegroundColor White
-    Write-Host '   │  3. לחץ "Load unpacked"                                      │' -ForegroundColor White
-    Write-Host '   │  4. בחר את התיקייה:                                          │' -ForegroundColor White
+    Write-Host '   |  1. chrome://extensions/ tab opened for you                  |' -ForegroundColor White
+    Write-Host '   |  2. Enable "Developer mode" (top-right corner)              |' -ForegroundColor White
+    Write-Host '   |  3. Click "Load unpacked"                                    |' -ForegroundColor White
+    Write-Host '   |  4. Select the folder:                                       |' -ForegroundColor White
     Write-Host "   │     $extPath" -ForegroundColor Cyan
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
@@ -596,21 +597,21 @@ function Step-ManualInstructions($idx, $total) {
 
     Write-Host ''
     Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   │  שלב ידני 2 - חיבור WhatsApp Web ב-Chrome Test              │' -ForegroundColor Yellow
+    Write-Host '   |  Manual Step 2 - Connect WhatsApp Web in Chrome Test          |' -ForegroundColor Yellow
     Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   │  1. פתח את Base44 בכרום הרגיל                                │' -ForegroundColor White
-    Write-Host '   │  2. לחץ על אייקון ה-Extension למעלה                          │' -ForegroundColor White
-    Write-Host '   │  3. בקלף "Bulk Sender" - לחץ "פתח Chrome Test לסריקת QR"     │' -ForegroundColor White
-    Write-Host '   │  4. סרוק QR בטלפון - הסשן יישמר לתמיד                        │' -ForegroundColor White
+    Write-Host '   |  1. Open Base44 in regular Chrome                            |' -ForegroundColor White
+    Write-Host '   |  2. Click the Extension icon at top                          |' -ForegroundColor White
+    Write-Host '   |  3. In "Bulk Sender" card - click "Open Chrome Test for QR"  |' -ForegroundColor White
+    Write-Host '   |  4. Scan QR with phone - session saved forever               |' -ForegroundColor White
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
     Write-Host ''
     Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   │  שלב ידני 3 - העתקת קומפוננטות ל-Base44                     │' -ForegroundColor Yellow
+    Write-Host '   |  Manual Step 3 - Copy components to Base44                   |' -ForegroundColor Yellow
     Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   │  פתח את התיקייה הבאה וקרא את ה-README שלה:                  │' -ForegroundColor White
+    Write-Host '   |  Open the following folder and read its README:              |' -ForegroundColor White
     Write-Host "   │  $compPath" -ForegroundColor Cyan
-    Write-Host '   │  היא מכילה את כל קבצי .jsx להעתקה ידנית ל-Base44.            │' -ForegroundColor White
+    Write-Host '   |  It contains all .jsx files to copy manually to Base44.      |' -ForegroundColor White
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
     if (-not $SkipExtensionPrompt) {
@@ -620,13 +621,13 @@ function Step-ManualInstructions($idx, $total) {
 
 # ─── Step: Health check ─────────────────────────────────────────────
 function Step-HealthCheck($idx, $total) {
-    Write-Step $idx $total 'מריץ בדיקת תקינות...'
+    Write-Step $idx $total 'Running health check...'
     $doctorPath = "$REPO_ROOT\doctor.ps1"
     if (Test-Path $doctorPath) {
-        Write-Info 'מריץ doctor.ps1...'
+        Write-Info 'Running doctor.ps1...'
         & $doctorPath -BriefMode
     } else {
-        Write-Warn 'doctor.ps1 not found - דילוג'
+        Write-Warn 'doctor.ps1 not found - skipping'
     }
 }
 
@@ -635,16 +636,16 @@ function Show-FinalBanner($daemon) {
     Write-Host ''
     Write-Host '  ╔════════════════════════════════════════════════════════════╗' -ForegroundColor Green
     Write-Host '  ║                                                            ║' -ForegroundColor Green
-    Write-Host '  ║          ✅ ההתקנה הסתיימה בהצלחה!                          ║' -ForegroundColor Green
+    Write-Host '  ||          [OK] Installation complete!                          ||' -ForegroundColor Green
     Write-Host '  ║                                                            ║' -ForegroundColor Green
     Write-Host '  ╚════════════════════════════════════════════════════════════╝' -ForegroundColor Green
     Write-Host ''
-    Write-Host '  פקודות לעתיד:' -ForegroundColor White
-    Write-Host "    עדכון:        $INSTALL_BASE\update.ps1" -ForegroundColor Gray
-    Write-Host "    אבחון:        $INSTALL_BASE\doctor.ps1" -ForegroundColor Gray
-    Write-Host "    הסרה:         $INSTALL_BASE\uninstall.ps1" -ForegroundColor Gray
+    Write-Host '  Future commands:' -ForegroundColor White
+    Write-Host "    Update:       $INSTALL_BASE\update.ps1" -ForegroundColor Gray
+    Write-Host "    Diagnostics:  $INSTALL_BASE\doctor.ps1" -ForegroundColor Gray
+    Write-Host "    Uninstall:    $INSTALL_BASE\uninstall.ps1" -ForegroundColor Gray
     Write-Host ''
-    Write-Host '  לוג מלא של ההתקנה:' -ForegroundColor White
+    Write-Host '  Full install log:' -ForegroundColor White
     Write-Host "    $LOG_FILE" -ForegroundColor Gray
     Write-Host ''
 }
@@ -671,7 +672,7 @@ try {
     # If auto-start was enabled, kick off the daemon now (without waiting for reboot)
     if ($autoStart) {
         Write-Host ''
-        Write-Info 'מפעיל את הדימון עכשיו...'
+        Write-Info 'Starting daemon now...'
         Start-Process 'wscript.exe' -ArgumentList "`"$($daemon.VbsPath)`""
         Start-Sleep -Seconds 3
     }
@@ -680,10 +681,10 @@ try {
     Log "=== Install completed ==="
 } catch {
     Write-Host ''
-    Write-Err "שגיאה בהתקנה: $_"
+    Write-Err "Install error: $_"
     Log "FATAL: $_"
     Log $_.ScriptStackTrace
-    Write-Host '   לוג מלא:' -ForegroundColor Yellow
+    Write-Host '   Full log:' -ForegroundColor Yellow
     Write-Host "   $LOG_FILE" -ForegroundColor Cyan
     exit 1
 }
