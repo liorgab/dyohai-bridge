@@ -708,4 +708,79 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const timeoutS = msg.timeout_s || 15;
     callNativeHelper({
       action: 'wait_and_paste',
-      file_path: msg.file_path
+      file_path: msg.file_path,
+      timeout_s: timeoutS
+    }, (timeoutS + 5) * 1000).then(sendResponse);
+    return true;
+  }
+
+  // v4.8: OS-level mouse click at given screen coords.
+  // Used to click "Document" in WhatsApp attach menu, satisfying Chrome's
+  // user activation requirement for the subsequent file picker dialog.
+  if (type === 'NATIVE_CLICK_AT_SCREEN') {
+    callNativeHelper({
+      action: 'click_at_screen',
+      x: msg.x,
+      y: msg.y,
+      restore_cursor: msg.restore_cursor !== false
+    }, 5000).then(sendResponse);
+    return true;
+  }
+
+  // ─── Bulk Sender daemon handlers (forward to localhost:8765) ─────
+  // The Bulk Sender daemon runs in a separate Python process, using
+  // Chrome for Testing + Selenium for fully automated bulk WA sending.
+  if (type === 'BULK_DAEMON_STATUS') {
+    fetch('http://127.0.0.1:8765/status', { method: 'GET' })
+      .then(r => r.json())
+      .then(sendResponse)
+      .catch(e => sendResponse({
+        success: false,
+        daemon: 'offline',
+        error: e.message,
+        hint: 'Start the Bulk Sender via the desktop shortcut'
+      }));
+    return true;
+  }
+
+  if (type === 'BULK_OPEN_WHATSAPP') {
+    // Tells daemon to launch Chrome Test (for first-time QR scan)
+    fetch('http://127.0.0.1:8765/open_whatsapp', { method: 'POST' })
+      .then(r => r.json())
+      .then(sendResponse)
+      .catch(e => sendResponse({ success: false, error: e.message }));
+    return true;
+  }
+
+  if (type === 'BULK_SEND_START') {
+    // Forward bulk job to daemon. Returns { job_id, sse_url }
+    fetch('http://127.0.0.1:8765/bulk_send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg.payload || {})
+    })
+      .then(r => r.json())
+      .then(sendResponse)
+      .catch(e => sendResponse({ success: false, error: e.message }));
+    return true;
+  }
+
+  if (type === 'BULK_SEND_STOP') {
+    fetch(`http://127.0.0.1:8765/stop/${encodeURIComponent(msg.job_id)}`, { method: 'POST' })
+      .then(r => r.json())
+      .then(sendResponse)
+      .catch(e => sendResponse({ success: false, error: e.message }));
+    return true;
+  }
+
+  if (type === 'NATIVE_CLEANUP') {
+    callNativeHelper({ action: 'cleanup' }, 3000).then(sendResponse);
+    return true;
+  }
+
+  return false;
+});
+
+chrome.runtime.onInstalled.addListener((details) => {
+  console.log('[Base44 Bridge] Installed/updated:', details.reason);
+});
