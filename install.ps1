@@ -505,20 +505,24 @@ function Step-AutoStart($idx, $total, $daemon) {
         return $false
     }
 
-    # Create new task: at logon, hidden, no admin
-    $action  = "/Create /TN `"$taskName`" /TR `"wscript.exe \`"$($daemon.VbsPath)\`"`" /SC ONLOGON /RL LIMITED /F"
-    $proc = Start-Process -FilePath 'schtasks' -ArgumentList $action -Wait -PassThru -NoNewWindow `
-        -RedirectStandardOutput "$env:TEMP\schtasks_out.txt" `
-        -RedirectStandardError  "$env:TEMP\schtasks_err.txt"
-
-    if ($proc.ExitCode -ne 0) {
-        $err = Get-Content "$env:TEMP\schtasks_err.txt" -Raw -ErrorAction SilentlyContinue
-        Write-Warn "schtasks failed: $err"
-        Write-Info 'You can continue - but will need to start daemon manually'
+    # Use Startup folder shortcut instead of schtasks - simpler, no escaping issues, no admin needed
+    try {
+        $startupFolder = [Environment]::GetFolderPath('Startup')
+        $shortcutPath = Join-Path $startupFolder 'DYohai Daemon.lnk'
+        $WshShell = New-Object -ComObject WScript.Shell
+        $lnk = $WshShell.CreateShortcut($shortcutPath)
+        $lnk.TargetPath = $daemon.BatPath
+        $lnk.WorkingDirectory = Split-Path $daemon.BatPath -Parent
+        $lnk.WindowStyle = 7
+        $lnk.Description = 'D.Yohai Bulk Daemon - auto-start at Windows login'
+        $lnk.Save()
+        Write-Ok "Auto-start enabled via Startup folder: $shortcutPath"
+        return $true
+    } catch {
+        Write-Warn "Could not create startup shortcut: $_"
+        Write-Info 'You can continue - but will need to start daemon manually from desktop shortcut'
         return $false
     }
-    Write-Ok "Task Scheduler entry '$taskName' created - runs at every login"
-    return $true
 }
 
 # ─── Step: Native Messaging Helper ──────────────────────────────────
