@@ -1,56 +1,155 @@
-param([string]$Version = "")
+param(
+    [string]$Version = "",
+    [switch]$ZipOnly,
+    [switch]$Prerelease
+)
 $ErrorActionPreference = "Continue"
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$extDir   = Join-Path $repoRoot "extension"
-$buildDir = Join-Path $repoRoot "build"
-$manifest = Join-Path $extDir "manifest.json"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Paths ---
+$repoRoot   = Split-Path -Parent $PSScriptRoot
+$extDir     = Join-Path $repoRoot "extension"
+$daemonDir  = Join-Path $repoRoot "daemon"
+$docsDir    = Join-Path $repoRoot "docs"
+$installer  = Join-Path $repoRoot "installer"
+$buildDir   = Join-Path $repoRoot "build"
+$manifest   = Join-Path $extDir "manifest.json"
+$versionFile= Join-Path $repoRoot "VERSION"
 
 if (-not $Version) {
-    $m = Get-Content $manifest -Raw | ConvertFrom-Json
+    $m = Get-Content $manifest -Raw -Encoding UTF8 | ConvertFrom-Json
     $Version = $m.version
 }
 $tag = "v$Version"
 
-Write-Host "Building release $tag..." -ForegroundColor Cyan
-if (-not (Test-Path $buildDir)) { New-Item -ItemType Directory -Path $buildDir -Force | Out-Null }
+Write-Host ""
+Write-Host "===============================================" -ForegroundColor Cyan
+Write-Host "  D.Yohai Bridge - Release Builder" -ForegroundColor Cyan
+Write-Host "===============================================" -ForegroundColor Cyan
+Write-Host "  Version: $tag" -ForegroundColor White
+Write-Host ""
 
-# Staging folder with extension/ + install.ps1 + README
-$stage = Join-Path $buildDir "stage-$tag"
+# Sync VERSION file with manifest
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($versionFile, "$Version`n", $utf8NoBom)
+Write-Host "  [OK] VERSION file synced to $Version" -ForegroundColor Green
+
+# --- Truncation guard ---
+Write-Host "  Checking for truncated files vs git HEAD..." -ForegroundColor Yellow
+Push-Location $repoRoot
+$truncated = @()
+$filesToCheck = @(
+    'extension/background.js',
+    'extension/manifest.json',
+    'install.ps1',
+    'uninstall.ps1',
+    'installer/release.ps1'
+)
+foreach ($f in $filesToCheck) {
+    if (-not (Test-Path $f)) { continue }
+    $diskSize = (Get-Item $f).Length
+    $headBytes = git show "HEAD:$f" 2>$null | Out-String
+    $headSize = $headBytes.Length
+    if ($headSize -gt 0 -and $diskSize -lt ($headSize * 0.9)) {
+        $truncated += ('{0} (disk={1}, HEAD={2})' -f $f, $diskSize, $headSize)
+    }
+}
+Pop-Location
+if ($truncated.Count -gt 0) {
+    Write-Host "  [X] TRUNCATION DETECTED - aborting:" -ForegroundColor Red
+    foreach ($t in $truncated) { Write-Host ("      " + $t) -ForegroundColor Red }
+    Write-Host "  Recover with: git checkout HEAD -- PATH" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "  [OK] No truncated files" -ForegroundColor Green
+
+# --- Prep staging dir ---
+if (-not (Test-Path $buildDir)) {
+    New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+}
+$stage = Join-Path $buildDir "dyohai-bridge-$tag"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
-Copy-Item -Path "$extDir" -Destination "$stage\extension" -Recurse -Force
-$daemonDir = Join-Path $repoRoot "daemon"
-if (Test-Path $daemonDir) {
-    Copy-Item -Path $daemonDir -Destination "$stage\daemon" -Recurse -Force
-}
-$bulkSenderDir = Join-Path $repoRoot "bulk-sender"
-if (Test-Path $bulkSenderDir) {
-    Copy-Item -Path $bulkSenderDir -Destination "$stage\bulk-sender" -Recurse -Force
-}
-foreach ($f in @("install.ps1","install.bat","update.ps1","doctor.ps1","README.md")) {
-    $srcF = Join-Path $repoRoot $f
-    if (Test-Path $srcF) { Copy-Item $srcF "$stage\$f" -Force }
-}
-$installerDir = Join-Path $repoRoot "installer"
-if (Test-Path $installerDir) {
-    Copy-Item -Path "$installerDir\*.ps1" -Destination $stage -Force -ErrorAction SilentlyContinue
+
+# --- Copy files into staging ---
+Write-Host "  Staging files..." -ForegroundColor Yellow
+Copy-Item $extDir     "$stage\extension" -Recurse -Force
+Copy-Item $daemonDir  "$stage\daemon"    -Recurse -Force
+Copy-Item $installer  "$stage\installer" -Recurse -Force
+if (Test-Path $docsDir) {
+    Copy-Item $docsDir "$stage\docs" -Recurse -Force
 }
 
-$zipPath = Join-Path $buildDir "dyohai-bridge-$tag.zip"
+# D.Yohai layout: install.ps1 / uninstall.ps1 / doctor.ps1 / update.ps1 sit at REPO ROOT
+$rootFiles = @(
+    'install.bat',
+    'uninstall.bat',
+    'README.md',
+    'VERSION',
+    'install.ps1',
+    'uninstall.ps1',
+    'update.ps1',
+    'doctor.ps1'
+)
+foreach ($f in $rootFiles) {
+    $src = Join-Path $repoRoot $f
+    if (Test-Path $src) {
+        Copy-Item $src $stage -Force
+    } else {
+        Write-Host ("  [!] missing root file: " + $f) -ForegroundColor Yellow
+    }
+}
+
+# Filter out artifacts
+Get-ChildItem $stage -Recurse -Force -Directory |
+    Where-Object { $_.Name -in @('.git', 'node_modules', '__pycache__', 'build') } |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+$profileDir = Join-Path $stage "daemon\profile"
+if (Test-Path $profileDir) { Remove-Item $profileDir -Recurse -Force }
+
+# --- Build ZIP ---
+$zipPath = Join-Path $buildDir ("dyohai-bridge-" + $tag + ".zip")
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Write-Host "Creating ZIP..." -ForegroundColor Yellow
+
+Write-Host "  Creating ZIP..." -ForegroundColor Yellow
 Compress-Archive -Path "$stage\*" -DestinationPath $zipPath -Force
 $sizeKB = [math]::Round((Get-Item $zipPath).Length / 1024, 1)
-Write-Host "  [OK] ZIP: $zipPath ($sizeKB KB)" -ForegroundColor Green
+Write-Host ("  [OK] ZIP: " + $zipPath + " (" + $sizeKB + " KB)") -ForegroundColor Green
+
 Remove-Item $stage -Recurse -Force
 
+if ($ZipOnly) {
+    Write-Host ""
+    Write-Host ("DONE (ZIP-only mode). File at: " + $zipPath) -ForegroundColor Green
+    return
+}
+
+# --- Push to origin ---
 Push-Location $repoRoot
-git push origin HEAD 2>$null | Out-Null
+Write-Host "  Pushing repo to origin..." -ForegroundColor Yellow
+git push --set-upstream origin HEAD 2>&1 | Out-Null
+Write-Host "  [OK] Repo synced" -ForegroundColor Green
+
+# --- GitHub release (idempotent) ---
+Write-Host ("  Creating GitHub release " + $tag + "...") -ForegroundColor Yellow
 gh release delete $tag --yes 2>$null | Out-Null
-gh release create $tag $zipPath --title $tag --notes "Release $tag - D.Yohai Bridge (with install.ps1)"
+
+$releaseArgs = @($tag, $zipPath, '--title', $tag, '--notes', ("Release " + $tag + " - D.Yohai Bridge"))
+if ($Prerelease) { $releaseArgs += '--prerelease' }
+
+gh release create @releaseArgs
+$exit = $LASTEXITCODE
 Pop-Location
 
 Write-Host ""
-Write-Host "DONE! Visit:" -ForegroundColor Green
-Write-Host "  https://github.com/liorgab/dyohai-bridge/releases/tag/$tag" -ForegroundColor Cyan
+if ($exit -eq 0) {
+    Write-Host "===============================================" -ForegroundColor Green
+    Write-Host "  DONE!" -ForegroundColor Green
+    Write-Host "===============================================" -ForegroundColor Green
+    Write-Host ("  Visit: https://github.com/liorgab/dyohai-bridge/releases/tag/" + $tag) -ForegroundColor Cyan
+} else {
+    Write-Host ("  [X] gh release create failed (exit " + $exit + ")") -ForegroundColor Red
+    Write-Host ("  ZIP still available at: " + $zipPath) -ForegroundColor Yellow
+}

@@ -1,4 +1,5 @@
 @echo off
+title D.Yohai Bridge Installer
 echo Starting D.Yohai Bridge installer...
 echo.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" %*

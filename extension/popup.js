@@ -121,5 +121,9 @@ document.getElementById('openBulkWA').addEventListener('click', () => {
   });
 });
 
+// Display actual extension version (was hardcoded in popup.html — went stale after every release)
+const versionSpan = document.getElementById('ext-version');
+if (versionSpan) versionSpan.textContent = chrome.runtime.getManifest().version;
+
 refresh();
 setInterval(refresh, 2000);

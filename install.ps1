@@ -575,7 +575,19 @@ function Step-SaveMetadata($idx, $total) {
             Copy-Item $src "$INSTALL_BASE\$script" -Force
         }
     }
-    Write-Ok "metadata saved at $INSTALL_BASE"
+
+    # Drop an uninstall.bat next to uninstall.ps1 for double-click convenience
+    $uninstallBat = @"
+@echo off
+title D.Yohai Bridge Uninstaller
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0uninstall.ps1" %*
+echo.
+echo Press any key to close...
+pause >nul
+"@
+    [System.IO.File]::WriteAllText("$INSTALL_BASE\uninstall.bat", $uninstallBat, $utf8NoBom)
+
+    Write-Ok "metadata + uninstall scripts saved at $INSTALL_BASE"
 }
 
 # ─── Step: Final manual instructions ────────────────────────────────
@@ -597,7 +609,15 @@ function Step-ManualInstructions($idx, $total) {
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
     if (-not $SkipExtensionPrompt) {
-        Start-Process 'chrome://extensions/'
+        # Open chrome://extensions/ — must launch via chrome.exe directly,
+        # because Windows doesn't register chrome:// as a system URL protocol
+        # (Start-Process chrome://... pops a Microsoft Store dialog).
+        $chromeExe = Find-Chrome
+        if ($chromeExe -and (Test-Path $chromeExe)) {
+            Start-Process -FilePath $chromeExe -ArgumentList 'chrome://extensions/' -ErrorAction SilentlyContinue
+        } else {
+            Write-Info 'Chrome not found - open chrome://extensions/ manually'
+        }
     }
 
     Write-Host ''
@@ -678,18 +698,4 @@ try {
     if ($autoStart) {
         Write-Host ''
         Write-Info 'Starting daemon now...'
-        Start-Process 'wscript.exe' -ArgumentList "`"$($daemon.VbsPath)`""
-        Start-Sleep -Seconds 3
-    }
-
-    Show-FinalBanner $daemon
-    Log "=== Install completed ==="
-} catch {
-    Write-Host ''
-    Write-Err "Install error: $_"
-    Log "FATAL: $_"
-    Log $_.ScriptStackTrace
-    Write-Host '   Full log:' -ForegroundColor Yellow
-    Write-Host "   $LOG_FILE" -ForegroundColor Cyan
-    exit 1
-}
+        Start-Pr
