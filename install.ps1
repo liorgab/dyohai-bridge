@@ -575,19 +575,7 @@ function Step-SaveMetadata($idx, $total) {
             Copy-Item $src "$INSTALL_BASE\$script" -Force
         }
     }
-
-    # Drop an uninstall.bat next to uninstall.ps1 for double-click convenience
-    $uninstallBat = @"
-@echo off
-title D.Yohai Bridge Uninstaller
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0uninstall.ps1" %*
-echo.
-echo Press any key to close...
-pause >nul
-"@
-    [System.IO.File]::WriteAllText("$INSTALL_BASE\uninstall.bat", $uninstallBat, $utf8NoBom)
-
-    Write-Ok "metadata + uninstall scripts saved at $INSTALL_BASE"
+    Write-Ok "metadata saved at $INSTALL_BASE"
 }
 
 # ─── Step: Final manual instructions ────────────────────────────────
@@ -698,4 +686,18 @@ try {
     if ($autoStart) {
         Write-Host ''
         Write-Info 'Starting daemon now...'
-        Start-Pr
+        Start-Process 'wscript.exe' -ArgumentList "`"$($daemon.VbsPath)`""
+        Start-Sleep -Seconds 3
+    }
+
+    Show-FinalBanner $daemon
+    Log "=== Install completed ==="
+} catch {
+    Write-Host ''
+    Write-Err "Install error: $_"
+    Log "FATAL: $_"
+    Log $_.ScriptStackTrace
+    Write-Host '   Full log:' -ForegroundColor Yellow
+    Write-Host "   $LOG_FILE" -ForegroundColor Cyan
+    exit 1
+}
