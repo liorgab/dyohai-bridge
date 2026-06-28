@@ -68,19 +68,22 @@ except ImportError:
 
 
 # ─── Configuration ────────────────────────────────────────────────
-DEFAULT_CHROME_PATH = r"C:\Users\liorg\AppData\Local\SeleniumBasic\chrome-win64\chrome.exe"
+DEFAULT_CHROME_PATH = os.path.join(
+    os.environ.get('LOCALAPPDATA', tempfile.gettempdir()),
+    'DYohaiChromeTest', 'chrome-win64', 'chrome.exe'
+)
 DEFAULT_PROFILE_DIR = os.path.join(
     os.environ.get('LOCALAPPDATA', tempfile.gettempdir()),
-    'Base44BulkSender', 'profile'
+    'DYohaiBulkSender', 'profile'
 )
 DEFAULT_CHROMEDRIVER = os.path.join(
     os.environ.get('LOCALAPPDATA', tempfile.gettempdir()),
-    'Base44BulkSender', 'chromedriver.exe'
+    'DYohaiBulkSender', 'chromedriver.exe'
 )
 LOG_FILE = os.path.join(tempfile.gettempdir(), 'base44_bulk_daemon.log')
 CONFIG_FILE = os.path.join(
     os.environ.get('LOCALAPPDATA', tempfile.gettempdir()),
-    'Base44BulkSender', 'config.json'
+    'DYohaiBulkSender', 'config.json'
 )
 
 DEFAULT_DELAY_MIN_S = 20            # min seconds between messages (random)
@@ -290,8 +293,26 @@ def get_driver():
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument('--disable-popup-blocking')
+        options.add_argument('--no-first-run')
+        options.add_argument('--no-default-browser-check')
+        # Block Chrome's "Open another app?" dialog that pops mid-job when
+        # WhatsApp tries to hand off to the WhatsApp Desktop app via wa:// or
+        # whatsapp:// protocol — the user previously had to manually dismiss
+        # this in the middle of a bulk send.
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        options.add_experimental_option("prefs", {
+            # Auto-allow external-protocol launches for wa/whatsapp/intent
+            # without asking the user. (Chrome stores these in Preferences.)
+            "protocol_handler.excluded_schemes": {
+                "wa": False, "whatsapp": False, "intent": False
+            },
+            # Suppress the download-prompt that some attachments trigger
+            "download.prompt_for_download": False,
+            # Pre-deny notifications (no permission popup)
+            "profile.default_content_setting_values.notifications": 2,
+        })
 
         # Kill any orphan Chrome Test that may be locking our profile
         # (happens when daemon was restarted without closing Chrome Test)
@@ -1644,8 +1665,6 @@ def bulk_send():
                 _jobs[job_id]['status'] = 'failed'
             finally:
                 _job_lock.release()
-        log(f"[/bulk_send 500] {type(e).__name__}: {e}")
-        log(traceback.format_exc())
 
         t = threading.Thread(target=worker, daemon=True)
         _jobs[job_id]['thread'] = t
@@ -1659,8 +1678,6 @@ def bulk_send():
         })
     except Exception as e:
         _job_lock.release()
-        log(f"[/bulk_send 500] {type(e).__name__}: {e}")
-        log(traceback.format_exc())
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
