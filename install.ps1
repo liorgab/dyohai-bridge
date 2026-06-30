@@ -428,13 +428,14 @@ function Step-Daemon($idx, $total, $cft) {
         }
     } catch {}
 
-    # 2. Kill any python process running OUR daemon (regardless of port)
+    # 2. Kill any python process running OUR daemon OR its driver worker
+    #    (the daemon spawns wa_driver_worker.py as a child subprocess).
     try {
         Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -like "*wa_bulk_daemon*" } |
+            Where-Object { $_.CommandLine -like "*wa_bulk_daemon*" -or $_.CommandLine -like "*wa_driver_worker*" } |
             ForEach-Object {
                 Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-                Write-Info "killed PID $($_.ProcessId) (wa_bulk_daemon)"
+                Write-Info "killed PID $($_.ProcessId) (daemon/worker)"
             }
     } catch {}
     Start-Sleep -Seconds 1
@@ -471,15 +472,26 @@ function Step-Daemon($idx, $total, $cft) {
     Copy-Item $daemonSrc $daemonDest -Force
     Write-Ok "wa_bulk_daemon.py copied to $DAEMON_BASE"
 
-    # 5. Sanity-check the copied daemon — fail fast if Python can't parse it
+    # The daemon spawns wa_driver_worker.py (the isolated Selenium subprocess)
+    # as a sibling file, so it MUST be deployed alongside the daemon.
+    $workerSrc  = "$REPO_ROOT\daemon\wa_driver_worker.py"
+    $workerDest = "$DAEMON_BASE\wa_driver_worker.py"
+    if (-not (Test-Path $workerSrc)) {
+        Write-Err "driver worker source missing: $workerSrc"
+        exit 1
+    }
+    Copy-Item $workerSrc $workerDest -Force
+    Write-Ok "wa_driver_worker.py copied to $DAEMON_BASE"
+
+    # 5. Sanity-check the copied daemon + worker — fail fast if Python can't parse them
     try {
         $pyExe = (Find-Python).Exe
-        $compileResult = & $pyExe -c "import py_compile; py_compile.compile(r'$daemonDest', doraise=True); print('OK')" 2>&1
+        $compileResult = & $pyExe -c "import py_compile; py_compile.compile(r'$daemonDest', doraise=True); py_compile.compile(r'$workerDest', doraise=True); print('OK')" 2>&1
         if ($LASTEXITCODE -ne 0 -or $compileResult -notmatch 'OK') {
             Write-Err "daemon failed Python compile check: $compileResult"
             exit 1
         }
-        Write-Info 'daemon passes Python compile check'
+        Write-Info 'daemon + worker pass Python compile check'
     } catch {
         Write-Warn "compile check skipped: $_"
     }

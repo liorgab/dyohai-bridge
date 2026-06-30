@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "D.Yohai Bridge - PIBA, HopOn & WhatsApp",
-  "version": "1.4.12",
+  "version": "1.4.13",
   "description": "D.Yohai Bridge - מחבר את Base44 לאתרי רשות האוכלוסין (PIBA), HopOn ו-WhatsApp Web + תמיכה במשלוח מדיה + Bulk Sender",
   "permissions": [
     "storage",
