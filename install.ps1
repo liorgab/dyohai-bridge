@@ -413,6 +413,49 @@ function Step-ChromeForTesting($idx, $total) {
 function Step-Daemon($idx, $total, $cft) {
     Write-Step $idx $total 'Installing Bulk Sender Daemon...'
 
+    # ─── DEFENSIVE PRE-INSTALL CLEANUP ──────────────────────────────
+    # Hitting same bug twice taught us: a stale daemon process holds old
+    # config in memory + stale .pyc takes precedence over the new .py.
+    # Without this cleanup, a fresh install on a machine that EVER ran a
+    # previous daemon will silently fail with old paths.
+
+    # 1. Kill any running daemon on port 8765
+    try {
+        $conns = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue
+        foreach ($c in $conns) {
+            Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+            Write-Info "killed PID $($c.OwningProcess) (was on port 8765)"
+        }
+    } catch {}
+
+    # 2. Kill any python process running OUR daemon (regardless of port)
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*wa_bulk_daemon*" } |
+            ForEach-Object {
+                Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+                Write-Info "killed PID $($_.ProcessId) (wa_bulk_daemon)"
+            }
+    } catch {}
+    Start-Sleep -Seconds 1
+
+    # 3. Remove stale __pycache__ (old bytecode wins over new .py if not deleted)
+    $cache = "$DAEMON_BASE\__pycache__"
+    if (Test-Path $cache) {
+        Remove-Item $cache -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Info 'removed stale __pycache__'
+    }
+
+    # 4. Remove the legacy Base44BulkSender workaround config (if it exists from a
+    #    previous session). The new daemon reads from DYohaiBulkSender — the legacy
+    #    file becomes confusing noise.
+    $legacyConfig = "$env:LOCALAPPDATA\Base44BulkSender\config.json"
+    if (Test-Path $legacyConfig) {
+        Remove-Item $legacyConfig -Force -ErrorAction SilentlyContinue
+        Write-Info 'removed legacy Base44BulkSender\config.json (workaround no longer needed)'
+    }
+
+    # ─── INSTALL FRESH FILES ────────────────────────────────────────
     New-Item -Path $DAEMON_BASE -ItemType Directory -Force | Out-Null
     $profileDir = "$DAEMON_BASE\profile"
     New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
@@ -428,7 +471,21 @@ function Step-Daemon($idx, $total, $cft) {
     Copy-Item $daemonSrc $daemonDest -Force
     Write-Ok "wa_bulk_daemon.py copied to $DAEMON_BASE"
 
-    # config.json - paths must NOT contain Hebrew characters (PowerShell encoding bug)
+    # 5. Sanity-check the copied daemon — fail fast if Python can't parse it
+    try {
+        $pyExe = (Find-Python).Exe
+        $compileResult = & $pyExe -c "import py_compile; py_compile.compile(r'$daemonDest', doraise=True); print('OK')" 2>&1
+        if ($LASTEXITCODE -ne 0 -or $compileResult -notmatch 'OK') {
+            Write-Err "daemon failed Python compile check: $compileResult"
+            exit 1
+        }
+        Write-Info 'daemon passes Python compile check'
+    } catch {
+        Write-Warn "compile check skipped: $_"
+    }
+
+    # config.json — paths must NOT contain Hebrew characters (PowerShell encoding bug).
+    # ALWAYS overwrite — fresh install must not inherit stale config.
     $config = @{
         chrome_path        = $cft.ChromePath
         chromedriver_path  = $cft.ChromedriverPath
@@ -436,7 +493,7 @@ function Step-Daemon($idx, $total, $cft) {
     } | ConvertTo-Json
     $configPath = "$DAEMON_BASE\config.json"
     [System.IO.File]::WriteAllText($configPath, $config, $utf8NoBom)
-    Write-Ok "config.json saved"
+    Write-Ok "config.json saved (chrome=$($cft.ChromePath))"
 
     # start_daemon.bat
     $py = Find-Python
