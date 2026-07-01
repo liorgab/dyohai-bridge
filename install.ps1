@@ -687,18 +687,10 @@ function Step-ManualInstructions($idx, $total) {
     Write-Host '   │  4. Scan QR with phone - session saved forever                        │' -ForegroundColor White
     Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
 
-    Write-Host ''
-    Write-Host '   ┌─────────────────────────────────────────────────────────────┐' -ForegroundColor Yellow
-    Write-Host '   │  Manual Step 3 - Copy components to Base44                     │' -ForegroundColor Yellow
-    Write-Host '   ├─────────────────────────────────────────────────────────────┤' -ForegroundColor Yellow
-    Write-Host '   │  Open this folder and read its README:                  │' -ForegroundColor White
-    Write-Host "   │  $compPath" -ForegroundColor Cyan
-    Write-Host '   │  Contains all .jsx files to copy manually to Base44.            │' -ForegroundColor White
-    Write-Host '   └─────────────────────────────────────────────────────────────┘' -ForegroundColor Yellow
-
-    if (-not $SkipExtensionPrompt) {
-        Start-Process 'explorer.exe' -ArgumentList $compPath
-    }
+    # Note: Manual Step 3 (Copy components to Base44) removed — D.Yohai uses the
+    # extension directly without per-customer JSX components anymore.
+    # The base44-components folder may not even exist; opening Explorer to it
+    # falls back to OneDrive/Documents which confuses users.
 }
 
 # ─── Step: Health check ─────────────────────────────────────────────
